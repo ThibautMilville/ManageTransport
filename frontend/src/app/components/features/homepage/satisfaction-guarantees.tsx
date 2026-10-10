@@ -16,7 +16,7 @@ const imageVariants = {
     transition: {
       duration: 0.7,
       delay: 0.2 + i * 0.18,
-      ease: "easeOut",
+      ease: "easeOut" as const,
     },
   }),
 };
