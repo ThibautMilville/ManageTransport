@@ -1,0 +1,58 @@
+name: Build and push Docker image
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ghcr.io/thibautmilville/managetransport-frontend:latest
+            ghcr.io/thibautmilville/managetransport-frontend:production
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ghcr.io/thibautmilville/managetransport-backend:latest
+            ghcr.io/thibautmilville/managetransport-backend:production
+
+      - name: Trigger Dokploy deployment
+        if: success()
+        continue-on-error: true
+        env:
+          WEBHOOK_URL: ${{ secrets.DOKPLOY_DEPLOY_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "DOKPLOY_DEPLOY_WEBHOOK not set, skipping."
+            exit 0
+          fi
+          curl -fsS -X POST "$WEBHOOK_URL" \
+            -H "Accept: application/json" \
+            -H "User-Agent: GitHub-Actions-Dokploy-Webhook" \
+            --max-time 30
+          echo ""

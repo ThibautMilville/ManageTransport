@@ -4,12 +4,20 @@ import { AppModule } from './config/app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const origins = (
+    process.env.CORS_ORIGIN ||
+    'http://localhost:3000,https://managetransport.fr,https://www.managetransport.fr'
+  )
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: origins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
   app.setGlobalPrefix('api');
-  await app.listen(4000);
+  const port = Number(process.env.PORT || 4000);
+  await app.listen(port, '0.0.0.0');
 }
 bootstrap();

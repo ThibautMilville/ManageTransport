@@ -2,23 +2,63 @@ import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { ContactRequest } from './contact.controller';
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function requireEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`Configuration SMTP incomplète: ${name} manquant`);
+  }
+  return value;
+}
+
 @Injectable()
 export class ContactService {
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter | null = null;
 
-  constructor() {
-    // Configuration pour Gmail avec un mot de passe d'application
+  private getTransporter(): nodemailer.Transporter {
+    if (this.transporter) return this.transporter;
+
+    const host = requireEnv('SMTP_HOST');
+    const port = Number.parseInt(requireEnv('SMTP_PORT'), 10);
+    if (!Number.isFinite(port) || port <= 0) {
+      throw new Error('SMTP_PORT doit être un entier positif');
+    }
+    const secureRaw = (process.env.SMTP_SECURE || '').trim().toLowerCase();
+    const secure = secureRaw === 'true' || secureRaw === '1' || secureRaw === 'yes' || port === 465;
+
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host,
+      port,
+      secure,
       auth: {
-        user: process.env.EMAIL_USER || 'your-email@gmail.com',
-        pass: process.env.EMAIL_PASSWORD || 'your-app-password',
+        user: requireEnv('SMTP_USER'),
+        pass: requireEnv('SMTP_PASSWORD'),
       },
     });
+    return this.transporter;
   }
 
   async sendContactEmail(contactData: ContactRequest): Promise<void> {
-    const { firstName, lastName, company, email, message } = contactData;
+    const firstName = escapeHtml(contactData.firstName || '');
+    const lastName = escapeHtml(contactData.lastName || '');
+    const company = contactData.company ? escapeHtml(contactData.company) : '';
+    const email = escapeHtml(contactData.email || '');
+    const message = escapeHtml(contactData.message || '');
+    const recipients = requireEnv('EMAIL_RECIPIENTS')
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+    if (recipients.length === 0) {
+      throw new Error('EMAIL_RECIPIENTS est vide');
+    }
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -80,14 +120,12 @@ export class ContactService {
       </div>
     `;
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'noreply@managetransport.fr',
-      to: 'tmilville.test@gmail.com',
-      subject: `Nouvelle demande de contact - ${firstName} ${lastName}`,
+    await this.getTransporter().sendMail({
+      from: requireEnv('SMTP_FROM'),
+      to: recipients,
+      subject: `Nouvelle demande de contact - ${contactData.firstName || ''} ${contactData.lastName || ''}`.trim(),
       html: htmlContent,
-      replyTo: email,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+      replyTo: contactData.email,
+    });
   }
 }
