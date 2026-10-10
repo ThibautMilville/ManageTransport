@@ -11,10 +11,9 @@ services:
     depends_on:
       - managetransport-backend
     networks:
-      dokploy-network:
+      default:
         aliases:
           - managetransport-frontend
-
   managetransport-backend:
     image: ghcr.io/thibautmilville/managetransport-backend:production
     pull_policy: always
@@ -31,10 +30,11 @@ services:
       SMTP_FROM: ${SMTP_FROM}
       EMAIL_RECIPIENTS: ${EMAIL_RECIPIENTS}
     networks:
-      dokploy-network:
+      default:
         aliases:
           - managetransport-backend
 
 networks:
-  dokploy-network:
+  default:
+    name: dokploy-network
     external: true

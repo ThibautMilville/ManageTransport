@@ -12,6 +12,7 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
 ENV NODE_ENV=production
+ENV API_INTERNAL_URL=http://managetransport-backend:4000
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -25,6 +26,7 @@ RUN apk add --no-cache libc6-compat
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV API_INTERNAL_URL=http://managetransport-backend:4000
 
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
